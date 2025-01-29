@@ -81,11 +81,6 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           version: latest  # Optional, specify version if needed
 
-      - name: Check gcloud authentication
-        run: |
-          gcloud auth list
-          gcloud config list project
-
       - name: Configure Docker Auth
         run: |
           gcloud auth configure-docker asia-southeast2-docker.pkg.dev --quiet
@@ -108,20 +103,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Clear gcloud config
+        run: gcloud config configurations delete default --quiet || true
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}  # Gunakan SA key dari GitHub Secrets
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          version: latest  # Optional, specify version if needed
 
       - name: Configure Docker Auth
         run: |
           gcloud auth configure-docker asia-southeast2-docker.pkg.dev --quiet
+
+      - name: Verify Image Existence
+        run: |
+          gcloud artifacts docker images list --repository=devsecops-repo --location=asia-southeast2
 
       - name: Run Trivy
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $(pwd):/repo \
           aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
+          --debug \
           asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
 
   notify:
