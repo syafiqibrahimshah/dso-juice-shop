@@ -108,15 +108,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install Trivy
+      - name: Run Trivy
         run: |
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.39.0_Linux-64bit.tar.gz
-          tar zxvf trivy_0.39.0_Linux-64bit.tar.gz
-          sudo mv trivy /usr/local/bin/
-
-      - name: Scan Docker Image
-        run: |
-          trivy image --exit-code 1 --severity HIGH,CRITICAL asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:latest
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $(pwd):/repo \
+          aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
+          asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
 
   notify:
     name: "📢 Notification"
