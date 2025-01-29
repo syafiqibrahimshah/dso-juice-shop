@@ -154,11 +154,6 @@ jobs:
           image: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
           region: asia-southeast2
           port: 3000
-  
-      - name: Verify URL Format
-        run: |
-          echo "Deployment URL: ${{ needs.deploy_staging.outputs.url }}"
-          curl -I ${{ needs.deploy_staging.outputs.url }}
 
   dast:
     name: "🔦 DAST Scan"
@@ -168,7 +163,7 @@ jobs:
       - name: Run ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.10.0
         with:
-          target: ${{ needs.deploy_staging.outputs.url }}
+          target: https://juice-shop-staging-270653895788.asia-southeast2.run.app/#/
           rules_file_name: "zap-baseline.conf"  # Optional custom rules
           
       - name: Upload DAST Results
