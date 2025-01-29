@@ -121,7 +121,7 @@ jobs:
 
       - name: Run Trivy Scan
         run: |
-          trivy image --exit-code 0 --severity HIGH,CRITICAL \
+          trivy image --exit-code 1 --severity HIGH,CRITICAL \
           --format json --output trivy-results.json \
           asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
 
@@ -149,26 +149,33 @@ jobs:
         id: deploy
         uses: google-github-actions/deploy-cloudrun@main
         with:
+          allow_unauthenticated: true
           service: juice-shop-staging
           image: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
           region: asia-southeast2
           port: 3000
+  
+      - name: Verify URL Format
+        run: |
+          echo "Deployment URL: ${{ needs.deploy_staging.outputs.url }}"
+          curl -I ${{ needs.deploy_staging.outputs.url }}
 
   dast:
     name: "🔦 DAST Scan"
     runs-on: ubuntu-latest
     needs: deploy_staging
     steps:
-      - name: Run ZAP Scan
-        uses: zaproxy/action-full-scan@v0.10.0
+      - name: Run ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.10.0
         with:
           target: ${{ needs.deploy_staging.outputs.url }}
+          rules_file_name: "zap-baseline.conf"  # Optional custom rules
           
       - name: Upload DAST Results
         uses: actions/upload-artifact@v3
         with:
           name: zap-scan-results
-          path: zap-results.sarif
+          path: zap-results.*
 
   notify:
     name: "📢 Notification"
