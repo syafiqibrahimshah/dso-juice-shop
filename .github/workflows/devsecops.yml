@@ -122,7 +122,15 @@ jobs:
       - name: Run Trivy Scan
         run: |
           trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          --format json --output trivy-results.json \
           asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
+
+      - name: Upload Trivy Results
+        uses: actions/upload-artifact@v3
+        if: always()  # Upload even if scan fails
+        with:
+          name: trivy-scan-results
+          path: trivy-results.json
 
   notify:
     name: "📢 Notification"
