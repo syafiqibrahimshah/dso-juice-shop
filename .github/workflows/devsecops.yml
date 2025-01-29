@@ -114,7 +114,7 @@ jobs:
 
       - name: Install Trivy
         run: |
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.58.2/trivy_0.58.2_Linux-64bit.tar.gz
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.58.2_Linux-64bit.tar.gz
           tar zxvf trivy_0.58.2_Linux-64bit.tar.gz
           sudo mv trivy /usr/local/bin/
           trivy --version
@@ -131,6 +131,44 @@ jobs:
         with:
           name: trivy-scan-results
           path: trivy-results.json
+  
+  deploy_staging:
+    name: "🚀 Deploy to Staging"
+    runs-on: ubuntu-latest
+    needs: container_scanning
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@main
+        with:
+          service: juice-shop-staging
+          image: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
+          region: asia-southeast2
+          port: 3000
+
+  dast:
+    name: "🔦 DAST Scan"
+    runs-on: ubuntu-latest
+    needs: deploy_staging
+    steps:
+      - name: Run ZAP Scan
+        uses: zaproxy/action-full-scan@v0.10.0
+        with:
+          target: ${{ needs.deploy_staging.outputs.url }}
+          
+      - name: Upload DAST Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: zap-scan-results
+          path: zap-results.sarif
 
   notify:
     name: "📢 Notification"
