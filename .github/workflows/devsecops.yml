@@ -124,10 +124,10 @@ jobs:
       - name: Run Trivy
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          -v $(pwd):/repo \
-          aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
-          --debug \
-          asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
+            -v $(pwd):/repo \
+            -v $HOME/.config/gcloud:/root/.config/gcloud \  # Mount GCP credentials
+            aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
+            asia-southeast2-docker.pkg.dev/syafiq-devsecops-playground/devsecops-repo/juice-shop:13023406990
 
   notify:
     name: "📢 Notification"
