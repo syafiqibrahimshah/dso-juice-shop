@@ -103,31 +103,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Clear gcloud config
-        run: gcloud config configurations delete default --quiet || true
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}  # Gunakan SA key dari GitHub Secrets
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          version: latest  # Optional, specify version if needed
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Configure Docker Auth
         run: |
           gcloud auth configure-docker asia-southeast2-docker.pkg.dev --quiet
 
-      - name: Run Trivy
+      - name: Install Trivy
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $(pwd):/repo \
-            -v $HOME/.config/gcloud:/root/.config/gcloud \  # Mount GCP credentials
-            aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL \
-            asia-southeast2-docker.pkg.dev/syafiq-devsecops-playground/devsecops-repo/juice-shop:13023406990
+          wget https://github.com/aquasecurity/trivy/releases/download/v0.58.2/trivy_0.58.2_Linux-64bit.tar.gz
+          tar zxvf trivy_0.58.2_Linux-64bit.tar.gz
+          sudo mv trivy /usr/local/bin/
+          trivy --version
+
+      - name: Run Trivy Scan
+        run: |
+          trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
 
   notify:
     name: "📢 Notification"
