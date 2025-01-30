@@ -158,7 +158,7 @@ jobs:
 
   notify:
     name: "📢 Notification"
-    needs: [pre-checkscontainer_security,secret_scanning,dast]
+    needs: [pre-checks,container_security,secret_scanning,dast]
     runs-on: ubuntu-latest
     if: always()
     steps:
