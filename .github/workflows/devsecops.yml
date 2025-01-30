@@ -60,11 +60,10 @@ jobs:
           fetch-depth: 0  
 
       - name: "🕵️♂️ Run TruffleHog"
-        uses: trufflesecurity/trufflehog-github-action@main
+        uses: trufflesecurity/trufflehog@main
         with:
-          path: .  
-          format: json
-          output: trufflehog-results.json
+          paths: .  
+          output: json://trufflehog-results.json 
         continue-on-error: true
 
       - name: "📤🔒 Upload TruffleHog Results"
@@ -159,7 +158,7 @@ jobs:
 
   notify:
     name: "📢 Notification"
-    needs: [container_security]
+    needs: [pre-checkscontainer_security,secret_scanning,dast]
     runs-on: ubuntu-latest
     if: always()
     steps:
