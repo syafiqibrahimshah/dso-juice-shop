@@ -6,7 +6,7 @@ env:
   TRUFFLEHOG_VERSION: v3.64.0
   GCP_REGION: asia-southeast2
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_REGISTRY: "asia-southeast2-docker.pkg.dev/my-real-project-id/devsecops-repo/juice-shop"
+  ARTIFACT_REGISTRY: "asia-southeast2-docker.pkg.dev/syafiq-devsecops-playground/devsecops-repo"
 
 jobs:
   pre-checks:
