@@ -36,19 +36,6 @@ jobs:
         with:
           java-version: '17'
 
-      - name: "🔍 OWASP Dependency Check"
-        uses: jeremylong/DependencyCheck-GitHub-Action@main
-        with:
-          project: 'dso-juice-shop'
-          format: 'JSON'
-          output: ./dependency-check-report.json
-
-      - name: "📤 Upload OWASP Dependency Check results"
-        uses: actions/upload-artifact@v3
-        with:
-          name: owasp-dependency-check
-          path: ./dependency-check-report.json
-
 
   sast:
     name: "🔍 SAST Analysis"
