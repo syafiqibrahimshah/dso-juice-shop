@@ -3,10 +3,10 @@ on: [push, pull_request]
 
 env:
   NODE_VERSION: 20
-  TRUFFLEHOG_VERSION: v3.64.0  # Pin version untuk security
-  GCP_REGION: asia-southeast2  # Hardcode region sini
+  TRUFFLEHOG_VERSION: v3.64.0
+  GCP_REGION: asia-southeast2
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop  # Guna vars. untuk region
+  ARTIFACT_REGISTRY: ${{ format('{0}-docker.pkg.dev/{1}/devsecops-repo/juice-shop', env.GCP_REGION, env.GCP_PROJECT_ID) }}
 
 jobs:
   pre-checks:
@@ -33,11 +33,11 @@ jobs:
 
       - name: "🔍 OWASP Dependency Check"
         continue-on-error: true
-        uses: dependency-check/action@v3
+        uses: DependencyTrack/action-dependency-check@v3
         with:
           project: 'dso-juice-shop'
           format: 'JSON'
-          output: ./dependency-check-report.json  # Specify output path
+          output: ./dependency-check-report.json
 
       - name: "📤 Upload OWASP results"
         uses: actions/upload-artifact@v3
