@@ -4,134 +4,133 @@ on: [push, pull_request]
 env:
   NODE_VERSION: 20
   TRUFFLEHOG_VERSION: v3.64.0  # Pin version untuk security
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  ARTIFACT_REGISTRY: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/my-app
 
 jobs:
-  build:
-    name: "🏗️ Build & Install"
+  pre-checks:
+    name: "🏗️ Security Pre-Checks"
     runs-on: ubuntu-latest
-    outputs:
-      build_status: ${{ steps.build.outputs.status }}
     steps:
-      - name: "🔁 Checkout Code"
+      - name: "📥 Checkout Code"
         uses: actions/checkout@v4
         
-      - name: "⎔ Setup Node.js"
+      - name: "🛡️ Node.js Setup"
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
           
-      - name: "📦 Install Dependencies"
-        run : npm install --ignore-scripts
+      - name: "📦 npm Audit"
+        continue-on-error: true
+        run: npm audit --production --json > audit-results.json  # Save as JSON
+
+      - name: "📤 Upload npm audit results"
+        uses: actions/upload-artifact@v3
+        with:
+          name: npm-audit-results
+          path: audit-results.json
+
+      - name: "🔍 OWASP Dependency Check"
+        continue-on-error: true
+        uses: dependency-check/action@v3
+        with:
+          project: 'dso-juice-shop'
+          format: 'JSON'
+          output: ./dependency-check-report.json  # Specify output path
+
+      - name: "📤 Upload OWASP results"
+        uses: actions/upload-artifact@v3
+        with:
+          name: owasp-dependency-check
+          path: ./dependency-check-report.json
 
   sast:
     name: "🔍 SAST Analysis"
     runs-on: ubuntu-latest
-    needs: build
+    needs: pre-checks
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
+      - name: "⚙️ Initialize CodeQL"
         uses: github/codeql-action/init@v3
         with:
-          languages: javascript  # Specify the languages you want to analyze
+          languages: javascript  
 
-      - name: Perform CodeQL Analysis
+      - name: "🔎 Perform CodeQL Analysis"
         uses: github/codeql-action/analyze@v3
         with:
-          output: codeql-results.sarif  # Example output file name
+          output: codeql-results.sarif  
 
   secret_scanning:
     name: "🔑 Secret Scanning"
     runs-on: ubuntu-latest
-    needs: build
+    needs: pre-checks
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  
 
-      - name: Run TruffleHog
-        run: |
-          docker run --rm -v $(pwd):/repo trufflesecurity/trufflehog filesystem /repo --json --github-actions > trufflehog-results.json
+      - name: "🕵️♂️ Run TruffleHog"
+        uses: trufflesecurity/trufflehog-github-action@main
+        with:
+          path: .  
+          format: json
+          output: trufflehog-results.json
+        continue-on-error: true
 
-      - name: Upload TruffleHog Results
+      - name: "📤🔒 Upload TruffleHog Results"
         uses: actions/upload-artifact@v3
         with:
           name: trufflehog-results
           path: trufflehog-results.json
 
-  build_and_push:
-    name: "🐳 Build and Push Image"
+  container_security:
+    name: "🐳 Build and Scan Docker Image"
     runs-on: ubuntu-latest
     #needs: [sast, secret_scanning]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
 
-      - name: Clear gcloud config
-        run: gcloud config configurations delete default --quiet || true
+      - name: "🛠️ Build Docker Image"
+        run: docker build -t asia-southeast2-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }} .
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: "🛡️ Run Trivy Scan"
+        uses: aquasecurity/trivy-action@0.19.0
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}  # Gunakan SA key dari GitHub Secrets
+          image-ref: asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
+          format: 'json'
+          output: trivy-results.json
+          severity: 'HIGH,CRITICAL'
+        continue-on-error: true
 
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - name: " 📤🔒 Upload Trivy Results"
+        uses: actions/upload-artifact@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          version: latest  # Optional, specify version if needed
+          name: trivy-scan-results
+          path: trivy-results.json
 
-      - name: Configure Docker Auth
-        run: |
-          gcloud auth configure-docker asia-southeast2-docker.pkg.dev --quiet
-
-      - name: Build Docker Image
-        run: |
-          docker build -t "asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}" .
-
-      - name: Push Docker Image
-        run: |
-          docker push "asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}"
-          docker tag "asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}" asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:latest
-          docker push asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:latest
-
-  container_scanning:
-    name: "🔍 Container Scanning"
-    runs-on: ubuntu-latest
-    needs: build_and_push
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Authenticate to Google Cloud
+      - name: "🔐 Auth to GCP"
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker Auth
-        run: |
-          gcloud auth configure-docker asia-southeast2-docker.pkg.dev --quiet
-
-      - name: Install Trivy
-        run: |
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.58.2_Linux-64bit.tar.gz
-          tar zxvf trivy_0.58.2_Linux-64bit.tar.gz
-          sudo mv trivy /usr/local/bin/
-          trivy --version
-
-      - name: Run Trivy Scan
-        run: |
-          trivy image --exit-code 0 --severity HIGH,CRITICAL \
-          --format json --output trivy-results.json \
-          asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop:${{ github.run_id }}
-
-      - name: Upload Trivy Results
-        uses: actions/upload-artifact@v3
-        if: always()  # Upload even if scan fails
+      - name: "☁️ Setup GCloud SDK"
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          name: trivy-scan-results
-          path: trivy-results.json
-  
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          version: latest
+          
+      - name: "🏷️ Tag and Push Image"
+        run: |
+          docker push "${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}"
+          docker tag "${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}" "${{ env.ARTIFACT_REGISTRY }}:latest"
+          docker push "${{ env.ARTIFACT_REGISTRY }}:latest"
+        env:
+          ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
+
   deploy_staging:
     name: "🚀 Deploy to Staging"
     runs-on: ubuntu-latest
@@ -146,7 +145,6 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Deploy to Cloud Run
-        id: deploy
         uses: google-github-actions/deploy-cloudrun@main
         with:
           allow_unauthenticated: true
