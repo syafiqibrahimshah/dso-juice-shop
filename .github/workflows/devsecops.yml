@@ -30,12 +30,6 @@ jobs:
         with:
           name: npm-audit-results
           path: audit-results.json
-      
-      - name: "☕ Setup Java"
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-
 
   sast:
     name: "🔍 SAST Analysis"
@@ -74,7 +68,7 @@ jobs:
         continue-on-error: true
 
       - name: "📤🔒 Upload TruffleHog Results"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trufflehog-results
           path: trufflehog-results.json
@@ -100,7 +94,7 @@ jobs:
         continue-on-error: true
 
       - name: " 📤🔒 Upload Trivy Results"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trivy-scan-results
           path: trivy-results.json
@@ -158,7 +152,7 @@ jobs:
           rules_file_name: "zap-baseline.conf"  # Optional custom rules
           
       - name: Upload DAST Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: zap-scan-results
           path: zap-results.*
