@@ -33,17 +33,24 @@ jobs:
 
       - name: "🔍 OWASP Dependency Check"
         continue-on-error: true
-        uses: DependencyTrack/action-dependency-check@v3
+        uses: actions/checkout@v4
+        uses: jeremylong/DependencyCheck-GitHub-Action@main
         with:
           project: 'dso-juice-shop'
           format: 'JSON'
           output: ./dependency-check-report.json
+      
+      - name: "☕ Setup Java"
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
 
       - name: "📤 Upload OWASP results"
         uses: actions/upload-artifact@v3
         with:
           name: owasp-dependency-check
           path: ./dependency-check-report.json
+
 
   sast:
     name: "🔍 SAST Analysis"
