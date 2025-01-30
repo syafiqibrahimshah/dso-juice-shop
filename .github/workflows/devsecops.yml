@@ -4,9 +4,9 @@ on: [push, pull_request]
 env:
   NODE_VERSION: 20
   TRUFFLEHOG_VERSION: v3.64.0  # Pin version untuk security
-  GCP_REGION: asia-southeast2
+  GCP_REGION: asia-southeast2  # Hardcode region sini
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  ARTIFACT_REGISTRY: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/devsecops-repo/juice-shop  # Update ni
+  ARTIFACT_REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop  # Guna vars. untuk region
 
 jobs:
   pre-checks:
