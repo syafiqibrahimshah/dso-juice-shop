@@ -173,7 +173,7 @@ jobs:
 
   notify:
     name: "📢 Notification"
-    needs: [container_scanning]
+    needs: [container_security]
     runs-on: ubuntu-latest
     if: always()
     steps:
