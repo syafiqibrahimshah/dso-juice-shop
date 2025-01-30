@@ -120,7 +120,7 @@ jobs:
   deploy_staging:
     name: "🚀 Deploy to Staging"
     runs-on: ubuntu-latest
-    needs: container_security
+    needs: [pre-checks,container_security,secret_scanning]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
