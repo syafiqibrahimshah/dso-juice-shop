@@ -119,7 +119,7 @@ jobs:
   container_security:
     name: "🐳 Build, Scan and Push Image"
     runs-on: ubuntu-latest
-    needs: [sast, secret_scanning]
+    needs: [sast, secret_scanning, sca]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -207,8 +207,9 @@ jobs:
         with:
           target: ${{ needs.deploy_staging.outputs.service_url }}
           rules_file_name: "zap-baseline.conf"
-          cmd_options: "-J -j"
+          cmd_options: "-J -j -d -a -m 5"
           output_file: "zap-results.json"
+          output_format: "json"
       
       - name: Upload DAST Results
         uses: actions/upload-artifact@v4
