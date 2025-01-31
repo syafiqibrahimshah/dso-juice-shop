@@ -218,7 +218,7 @@ jobs:
             zap-results.json
 
   notify:
-    name: Vulnerability Management
+    name: "🚨 Vulnerability Management"
     needs: [pre-checks,container_security,secret_scanning,dast]
     runs-on: ubuntu-latest
     if: always()
