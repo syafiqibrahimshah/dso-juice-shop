@@ -214,7 +214,7 @@ jobs:
         with:
           name: zap-scan-results
           path: |
-            zap-results.json
+            report_html.html
 
   notify:
     name: "🚨 Vulnerability Management"
