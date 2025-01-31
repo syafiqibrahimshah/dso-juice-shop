@@ -199,10 +199,19 @@ jobs:
           path: zap-results.*
 
   notify:
-    name: "📢 Notification"
+    name: "📢 [PLACEHOLDER] Notification"
     needs: [pre-checks,container_security,secret_scanning,dast]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: "📤 Send Results to Defect Dojo"
-        run: echo "Implement Defect Dojo integration"  # Temporary placeholder
+        run: echo "Implement Defect Dojo integration"
+
+  deploy_prod:
+    name: "🚀 [PLACEHOLDER] Deploy to Prod"
+    runs-on: ubuntu-latest
+    needs: [dast]
+    if: false  # 👈 Disable sementara
+    steps:
+      - name: "📝 Implement Prod Deployment"
+        run: echo "Production deployment logic goes here"
