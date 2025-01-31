@@ -64,6 +64,19 @@ jobs:
         with:
           paths: .  
           output: json://trufflehog-results.json 
+        env:
+          CUSTOM_REGEX: |
+            (?i)(
+              # Standard patterns
+              password|token|secret|jwt|private[\s_-]?key|
+              # GCP specific
+              (gcp|google)_(api|service|cloud)_key| 
+              syafiq-devsecops.*\.json|  # Match project-specific service accounts
+              # Internal patterns
+              (internal|syafiq)_(db|api)_(prod|staging)|
+              # Env files
+              \.env\.(local|prod|test)
+            )
         continue-on-error: true
 
       - name: "📤🔒 Upload TruffleHog Results"
@@ -179,7 +192,9 @@ jobs:
           image: ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}
           region: ${{ env.GCP_REGION }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          flags: "--allow-unauthenticated --port=3000"
+          allow_unauthenticated: true
+          port: 3000
+          flags: "--min-instances=1 --max-instances=3"
 
   dast:
     name: "🔦 DAST Scan"
