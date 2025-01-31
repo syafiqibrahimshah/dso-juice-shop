@@ -9,57 +9,32 @@ env:
   ARTIFACT_REGISTRY: "asia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devsecops-repo/juice-shop"
 
 jobs:
-  # pre-checks:  # 👈 Dah comment
-  #   name: "🔍 Pre-Checks"
-  #   runs-on: ubuntu-latest
-  #   steps: [...]
-
-  # container_security:  # 👈 Ni pun
-  #   name: "🛡️ Container Security"
-  #   needs: pre-checks
-  #   steps: [...]
-
-  # secret_scanning:  # 👈 Ni gak
-  #   name: "🕵️♀️ Secret Scanning"
-  #   runs-on: ubuntu-latest
-  #   steps: [...]
-
-  deploy_staging:
-    name: "🚀 Deploy to Staging"
+  pre-checks:
+    name: "🏗️ Security Pre-Checks"
     runs-on: ubuntu-latest
-    # needs: [pre-checks,container_security,secret_scanning]  # 👈 Kena comment ni sekali
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+        
+      - name: "🛡️ Node.js Setup"
+        uses: actions/setup-node@v3
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: "📦 npm Audit"
+        continue-on-error: true
+        run: npm audit --production --json > audit-results.json  # Save as JSON
 
-      - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@main
+      - name: "📤 Upload npm audit results"
+        uses: actions/upload-artifact@v4
         with:
-          allow_unauthenticated: true
-          service: juice-shop-staging
-          image: ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}
-          region: ${{ env.GCP_REGION }}
-          port: 3000
-
-  # dast:  # 👈 Ni semua pun
-  #   name: "🔫 DAST with OWASP ZAP"
-  #   needs: [deploy_staging]
-  #   steps: [...]
-
-  # sca:  # 👈 SCA pun off
-  #   name: "🔮 SCA with Snyk"
-  #   needs: [pre-checks, secret_scanning]
-  #   steps: [...]
+          name: npm-audit-results
+          path: audit-results.json
 
   sast:
     name: "🔍 SAST Analysis"
     runs-on: ubuntu-latest
-    # needs: pre-checks
+    needs: pre-checks
     steps:
       - name: "📥 Checkout code"
         uses: actions/checkout@v4
@@ -74,153 +49,145 @@ jobs:
         with:
           output: codeql-results.sarif  
 
-  # secret_scanning:
-  #   name: "🔑 Secret Scanning"
-  #   runs-on: ubuntu-latest
-  #   needs: pre-checks
-  #   steps:
-  #     - name: "📥 Checkout Code"
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0  
-  #
-  #     - name: "🕵️♂️ Run TruffleHog"
-  #       uses: trufflesecurity/trufflehog@main
-  #       with:
-  #         paths: .  
-  #         output: json://trufflehog-results.json 
-  #       continue-on-error: true
-  #
-  #     - name: "📤🔒 Upload TruffleHog Results"
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: trufflehog-results
-  #         path: trufflehog-results.json
+  secret_scanning:
+    name: "🔑 Secret Scanning"
+    runs-on: ubuntu-latest
+    needs: pre-checks
+    steps:
+      - name: "📥 Checkout Code"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  
 
-  # sca:
-  #   name: "🔮 SCA with Snyk"
-  #   runs-on: ubuntu-latest
-  #   needs: [pre-checks, secret_scanning]
-  #   steps:
-  #     - name: "📥 Checkout code"
-  #       uses: actions/checkout@v4
-  #
-  #     - name: "🛡️ Node.js Setup"
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: ${{ env.NODE_VERSION }}
-  #
-  #     - name: "📦 Install Snyk"
-  #       run: npm install -g snyk
-  #
-  #     - name: "🔍 Run Snyk Security Scan"
-  #       uses: snyk/actions/node@master
-  #       continue-on-error: true
-  #       with:
-  #         command: test
-  #         args: --all-projects --json-file-output=snyk-results.json
-  #       env:
-  #         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-  #
-  #     - name: "📤 Upload Snyk Results"
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: snyk-sca-results
-  #         path: snyk-results.json
+      - name: "🕵️♂️ Run TruffleHog"
+        uses: trufflesecurity/trufflehog@main
+        with:
+          paths: .  
+          output: json://trufflehog-results.json 
+        continue-on-error: true
 
-  # container_security:
-  #   name: "🐳 Build, Scan and Push Image"
-  #   runs-on: ubuntu-latest
-  #   needs: [sast, secret_scanning]
-  #   steps:
-  #     - name: "📥 Checkout code"
-  #       uses: actions/checkout@v4
-  #
-  #     - name: "🔐 Auth to GCP"
-  #       uses: google-github-actions/auth@v2
-  #       with:
-  #         credentials_json: ${{ secrets.GCP_SA_KEY }}
-  #
-  #     - name: "☁️ Setup GCloud SDK"
-  #       uses: google-github-actions/setup-gcloud@v2
-  #       with:
-  #         project_id: ${{ env.GCP_PROJECT_ID }}
-  #         version: latest
-  #         
-  #     - name: "🔑 Configure Docker Auth"
-  #       run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
-  #
-  #     - name: "🛠️ Build Docker Image"
-  #       run: docker build -t ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }} .
-  #
-  #     - name: "🛡️ Run Trivy Scan"
-  #       uses: aquasecurity/trivy-action@0.19.0
-  #       with:
-  #         image-ref: ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}
-  #         format: 'json'
-  #         output: trivy-results.json
-  #         severity: 'HIGH,CRITICAL'
-  #       continue-on-error: true
-  #
-  #     - name: " 📤🔒 Upload Trivy Results"
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: trivy-scan-results
-  #         path: trivy-results.json
-  #
-  #     - name: "🏷️ Tag and Push Image"
-  #       run: |
-  #         docker push "${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}"
-  #         docker tag "${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}" "${{ env.ARTIFACT_REGISTRY }}:latest"
-  #         docker push "${{ env.ARTIFACT_REGISTRY }}:latest"
-  #       env:
-  #         ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
+      - name: "📤🔒 Upload TruffleHog Results"
+        uses: actions/upload-artifact@v4
+        with:
+          name: trufflehog-results
+          path: trufflehog-results.json
 
-  # deploy_staging:
-  #   name: "🚀 Deploy to Staging"
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     service_url: ${{ steps.deploy.outputs.url }}
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v2
-  #
-  #     - name: Authenticate to Google Cloud
-  #       uses: google-github-actions/auth@v2
-  #       with:
-  #         credentials_json: ${{ secrets.GCP_SA_KEY }}
-  #
-  #     - name: Deploy to Cloud Run
-  #       id: deploy
-  #       uses: google-github-actions/deploy-cloudrun@main
-  #       with:
-  #         allow_unauthenticated: true
-  #         service: juice-shop-staging
-  #         image: ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}
-  #         region: ${{ env.GCP_REGION }}
-  #         port: 3000
-  #
-  #     - name: "🕵️♂️ Debug Outputs"
-  #       run: |
-  #         echo "Deploy Step Outputs:"
-  #         echo "${{ toJSON(steps.deploy.outputs) }}"
-  #         echo "Job Outputs: ${{ needs.deploy_staging.outputs.service_url }}"
+  sca:
+    name: "🔮 SCA with Snyk"
+    runs-on: ubuntu-latest
+    needs: [pre-checks, secret_scanning]
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
 
-  # dast:
-  #   name: "🔫 DAST with OWASP ZAP"
-  #   runs-on: ubuntu-latest
-  #   needs: [deploy_staging]
-  #   steps:
-  #     - name: "🕵️♂️ OWASP ZAP Baseline Scan"
-  #       uses: zaproxy/action-baseline@v1
-  #       with:
-  #         target: ${{ needs.deploy_staging.outputs.service_url }}
-  #         rules_file_name: baseline
-  #         cmd_options: '-a -j -m 5'
+      - name: "🛡️ Node.js Setup"
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: "📦 Install Snyk"
+        run: npm install -g snyk
+
+      - name: "🔍 Run Snyk Security Scan"
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        with:
+          command: test
+          args: --all-projects --json-file-output=snyk-results.json
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: "📤 Upload Snyk Results"
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-sca-results
+          path: snyk-results.json
+
+  container_security:
+    name: "🐳 Build, Scan and Push Image"
+    runs-on: ubuntu-latest
+    needs: [sast, secret_scanning]
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "🔐 Auth to GCP"
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: "☁️ Setup GCloud SDK"
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          version: latest
+          
+      - name: "🔑 Configure Docker Auth"
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+
+      - name: "🛠️ Build Docker Image"
+        run: docker build -t ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }} .
+
+      - name: "🛡️ Run Trivy Scan"
+        uses: aquasecurity/trivy-action@0.19.0
+        with:
+          image-ref: ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}
+          format: 'json'
+          output: trivy-results.json
+          severity: 'HIGH,CRITICAL'
+        continue-on-error: true
+
+      - name: " 📤🔒 Upload Trivy Results"
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-results
+          path: trivy-results.json
+
+      - name: "🏷️ Tag and Push Image"
+        run: |
+          docker push "${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}"
+          docker tag "${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}" "${{ env.ARTIFACT_REGISTRY }}:latest"
+          docker push "${{ env.ARTIFACT_REGISTRY }}:latest"
+        env:
+          ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
+
+  deploy_staging:
+    name: "🚀 Deploy to Staging"
+    runs-on: ubuntu-latest
+    needs: [pre-checks,container_security,secret_scanning]
+    outputs:
+      service_url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@main
+        with:
+          allow_unauthenticated: true
+          service: juice-shop-staging
+          image: ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}
+          region: ${{ env.GCP_REGION }}
+          port: 3000
+
+  dast:
+    name: "🔦 DAST Scan"
+    runs-on: ubuntu-latest
+    needs: deploy_staging
+    steps:
+      - name: Run ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.10.0
+        with:
+          target: ${{ needs.deploy_staging.outputs.service_url }}
+          rules_file_name: "zap-baseline.conf"
+      
+      - name: Upload DAST Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-scan-results
+          path: zap-results.*
 
   notify:
     name: "📢 Notification"
-    # needs: [pre-checks,container_security,secret_scanning,dast]
+    needs: [pre-checks,container_security,secret_scanning,dast]
     runs-on: ubuntu-latest
     if: always()
     steps:
