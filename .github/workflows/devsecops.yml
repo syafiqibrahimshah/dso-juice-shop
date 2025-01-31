@@ -212,6 +212,7 @@ jobs:
         with:
           name: zap-scan-results
           path: zap-results.*
+    continue-on-error: true
 
   notify:
     name: "📢 [PLACEHOLDER] Notification"
