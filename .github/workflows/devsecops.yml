@@ -200,19 +200,22 @@ jobs:
     name: "🔦 DAST Scan"
     runs-on: ubuntu-latest
     needs: deploy_staging
+    continue-on-error: true
     steps:
       - name: Run ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.10.0
         with:
           target: ${{ needs.deploy_staging.outputs.service_url }}
           rules_file_name: "zap-baseline.conf"
+          cmd_options: "-J -j"
+          output_file: "zap-results.json"
       
-      - name: Upload DAST Results
+      - name: "📤 Upload DAST Results"
         uses: actions/upload-artifact@v4
         with:
           name: zap-scan-results
-          path: zap-results.*
-    continue-on-error: true
+          path: |
+            zap-results.json
 
   notify:
     name: "📢 [PLACEHOLDER] Notification"
