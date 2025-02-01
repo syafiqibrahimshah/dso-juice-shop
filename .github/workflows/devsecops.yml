@@ -30,7 +30,7 @@ jobs:
             ${{ runner.os }}-node-
       
       - name: Install Dependencies
-        run: cpm install
+        run: npm install
 
       - name: npm Audit
         continue-on-error: true
