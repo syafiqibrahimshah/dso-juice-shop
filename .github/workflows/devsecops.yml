@@ -245,15 +245,12 @@ jobs:
       
       - name: Deploy to Cloud Run
         id: deploy
-        uses: google-github-actions/deploy-cloudrun@v1
+        uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: juice-shop-staging
-          image: ${{ env.ARTIFACT_REGISTRY }}:${{ github.run_id }}
           region: ${{ env.GCP_REGION }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          allow_unauthenticated: true
-          port: 3000
-          flags: "--min-instances=1 --max-instances=3"
+          service: juice-shop
+          source: .
+          flags: --port=3000 --allow-unauthenticated
 
   dast_scan:
     name: "🔦 ZAP Scan"
