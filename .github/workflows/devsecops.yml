@@ -42,6 +42,39 @@ jobs:
           name: npm-audit-results
           path: audit-results.json
 
+  unit_test:
+    name: "🧪 Unit Tests"
+    runs-on: ubuntu-latest
+    needs: install_audit
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Unit Tests
+        run: npm test -- --reporter json --reporter-option output=test-results.json
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: test-results.json
+
   sast_scan:
     name: "🔍 SAST Analysis"
     runs-on: ubuntu-latest
